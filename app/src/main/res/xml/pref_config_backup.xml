@@ -60,6 +60,13 @@
             app:allowDividerBelow="false"
             app:iconSpaceReserved="false" />
 
+        <io.legado.app.lib.prefs.Preference
+            android:key="localSyncPath"
+            android:dependency="syncBookProgress"
+            android:summary="@string/local_sync_path_s"
+            android:title="@string/local_sync_path"
+            app:iconSpaceReserved="false" />
+
     </io.legado.app.lib.prefs.PreferenceCategory>
 
     <io.legado.app.lib.prefs.PreferenceCategory

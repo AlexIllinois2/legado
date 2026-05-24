@@ -73,6 +73,16 @@ class BackupConfigFragment : PreferenceFragment(),
             }
         }
     }
+    private val selectLocalSyncPath = registerForActivityResult(HandleFileContract()) { result ->
+        result.uri?.let { uri ->
+            if (uri.isContentScheme()) {
+                AppConfig.localSyncPath = uri.toString()
+            } else {
+                AppConfig.localSyncPath = uri.path
+            }
+            upPreferenceSummary(PreferKey.localSyncPath, AppConfig.localSyncPath)
+        }
+    }
     private val backupDir = registerForActivityResult(HandleFileContract()) { result ->
         result.uri?.let { uri ->
             if (uri.isContentScheme()) {
@@ -133,6 +143,7 @@ class BackupConfigFragment : PreferenceFragment(),
         upPreferenceSummary(PreferKey.webDavDir, AppConfig.webDavDir)
         upPreferenceSummary(PreferKey.webDavDeviceName, AppConfig.webDavDeviceName)
         upPreferenceSummary(PreferKey.backupPath, getPrefString(PreferKey.backupPath))
+        upPreferenceSummary(PreferKey.localSyncPath, AppConfig.localSyncPath)
         findPreference<io.legado.app.lib.prefs.Preference>("web_dav_restore")
             ?.onLongClick {
                 restoreFromLocal()
@@ -217,6 +228,12 @@ class BackupConfigFragment : PreferenceFragment(),
                 else -> value
             }
 
+            PreferKey.localSyncPath -> preference.summary = if (value.isNullOrBlank()) {
+                getString(R.string.select_local_sync_path)
+            } else {
+                value
+            }
+
             else -> {
                 if (preference is ListPreference) {
                     val index = preference.findIndexOfValue(value)
@@ -232,6 +249,10 @@ class BackupConfigFragment : PreferenceFragment(),
     override fun onPreferenceTreeClick(preference: Preference): Boolean {
         when (preference.key) {
             PreferKey.backupPath -> selectBackupPath.launch()
+            PreferKey.localSyncPath -> selectLocalSyncPath.launch {
+                title = getString(R.string.select_local_sync_path)
+                mode = HandleFileContract.DIR
+            }
             PreferKey.restoreIgnore -> backupIgnore()
             "web_dav_backup" -> backup()
             "web_dav_restore" -> restore()
