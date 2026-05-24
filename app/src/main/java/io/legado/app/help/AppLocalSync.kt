@@ -7,6 +7,8 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.help.config.AppConfig
+import io.legado.app.help.storage.Backup
+import io.legado.app.help.storage.Restore
 import io.legado.app.utils.DocumentUtils
 import io.legado.app.utils.GSON
 import io.legado.app.utils.UrlUtil
@@ -34,7 +36,7 @@ object AppLocalSync {
 
     val isOk: Boolean
         get() {
-            val path = AppConfig.localSyncPath ?: return false
+            val path = AppConfig.backupPath ?: return false
             return try {
                 val uri = Uri.parse(path)
                 appCtx.contentResolver.persistedUriPermissions.any {
@@ -47,7 +49,7 @@ object AppLocalSync {
 
     private val localSyncUri: Uri?
         get() {
-            val path = AppConfig.localSyncPath ?: return null
+            val path = AppConfig.backupPath ?: return null
             return try {
                 Uri.parse(path)
             } catch (e: Exception) {
@@ -65,6 +67,7 @@ object AppLocalSync {
         onSuccess: (() -> Unit)? = null
     ) {
         if (!isOk) return
+        if (!AppConfig.localAutoSyncProgress) return
         val uri = localSyncUri ?: return
         if (!uri.isContentScheme()) return
 
@@ -93,6 +96,7 @@ object AppLocalSync {
         onSuccess: (() -> Unit)? = null
     ) {
         if (!isOk) return
+        if (!AppConfig.localAutoSyncProgress) return
         val uri = localSyncUri ?: return
         if (!uri.isContentScheme()) return
 
@@ -116,6 +120,7 @@ object AppLocalSync {
 
     suspend fun getBookProgress(book: Book): BookProgress? {
         if (!isOk) return null
+        if (!AppConfig.localAutoSyncProgress) return null
         val uri = localSyncUri ?: return null
         if (!uri.isContentScheme()) return null
 
@@ -147,6 +152,7 @@ object AppLocalSync {
 
     suspend fun downloadAllBookProgress() {
         if (!isOk) return
+        if (!AppConfig.localAutoSyncProgress) return
         val uri = localSyncUri ?: return
         if (!uri.isContentScheme()) return
 
@@ -221,6 +227,54 @@ object AppLocalSync {
             }
         } catch (e: Exception) {
             AppLog.put("清除本地进度失败\n${e.localizedMessage}", e)
+        }
+    }
+
+    suspend fun backupToLocalSync() {
+        if (!isOk) return
+        val path = AppConfig.backupPath ?: return
+        Backup.backupLocked(appCtx, path)
+    }
+
+    suspend fun getLocalBackupNames(): List<String> {
+        if (!isOk) return emptyList()
+        val uri = localSyncUri ?: return emptyList()
+        if (!uri.isContentScheme()) return emptyList()
+
+        return withContext(IO) {
+            val rootDoc = DocumentFile.fromTreeUri(appCtx, uri)!!
+            rootDoc.listFiles()
+                .filter { it.name?.endsWith(".zip") == true }
+                .mapNotNull { it.name }
+                .sortedDescending()
+        }
+    }
+
+    suspend fun restoreFromLocalSync(backupFileName: String) {
+        if (!isOk) return
+        val uri = localSyncUri ?: return
+        if (!uri.isContentScheme()) return
+
+        val rootDoc = DocumentFile.fromTreeUri(appCtx, uri)!!
+        val fileDoc = rootDoc.findFile(backupFileName)
+        if (fileDoc == null) {
+            AppLog.put("本地同步目录中未找到备份文件: $backupFileName")
+            return
+        }
+        Restore.restore(appCtx, fileDoc.uri)
+    }
+
+    suspend fun getDeviceBackupInfo(deviceName: String): Triple<String, Uri, Long>? {
+        if (!isOk) return null
+        val uri = localSyncUri ?: return null
+        if (!uri.isContentScheme()) return null
+
+        return withContext(IO) {
+            val rootDoc = DocumentFile.fromTreeUri(appCtx, uri)!!
+            rootDoc.listFiles()
+                .filter { f -> f.name?.endsWith(".zip") == true && f.name?.contains(deviceName) == true }
+                .maxByOrNull { it.lastModified() }
+                ?.let { Triple(it.name!!, it.uri, it.lastModified()) }
         }
     }
 }
