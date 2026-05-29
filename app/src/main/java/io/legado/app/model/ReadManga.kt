@@ -11,6 +11,7 @@ import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.readRecord.ReadRecord
 import io.legado.app.data.entities.readRecord.ReadRecordSession
 import io.legado.app.data.repository.ReadRecordRepository
+import io.legado.app.help.AppLocalSync
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.ConcurrentRateLimiter
 import io.legado.app.help.book.BookHelp
@@ -534,6 +535,11 @@ object ReadManga : CoroutineScope by MainScope() {
     fun uploadProgress(successAction: (() -> Unit)? = null) {
         book?.let {
             launch(IO) {
+                if (AppLocalSync.isOk) {
+                    AppLocalSync.uploadBookProgress(it) {
+                        successAction?.invoke()
+                    }
+                }
                 AppWebDav.uploadBookProgress(it) {
                     successAction?.invoke()
                 }

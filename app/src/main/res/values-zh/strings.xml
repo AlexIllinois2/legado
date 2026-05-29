@@ -1531,4 +1531,12 @@
     <string name="underline_width_thick">粗</string>
     <string name="underline_offset_near">近</string>
     <string name="underline_offset_far">远</string>
+    
+    <!-- Local Sync -->
+    <string name="local_sync">本地备份设置</string>
+    <string name="local_auto_backup">自动备份</string>
+    <string name="local_auto_backup_s">自动备份到本地备份路径</string>
+    <string name="local_auto_sync_progress">备份阅读进度</string>
+    <string name="local_auto_sync_progress_s">自动备份/恢复阅读进度</string>
+    <string name="local_restore_confirm">发现当前设备的新本地备份，是否恢复</string>
 </resources>
