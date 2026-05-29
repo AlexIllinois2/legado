@@ -112,7 +112,7 @@ object Backup {
                     if (shouldBackup()) {
                         val backupZipFileName = getNowZipFileName()
                         if (!AppWebDav.hasBackUp(backupZipFileName)) {
-                            backup(context, AppConfig.backupPath)
+                            backup(context, AppConfig.backupPath, true)
                         } else {
                             LocalConfig.lastBackup = System.currentTimeMillis()
                         }
@@ -132,7 +132,7 @@ object Backup {
         }
     }
 
-    private suspend fun backup(context: Context, path: String?) {
+    private suspend fun backup(context: Context, path: String?, isFromAutoBack: Boolean = false) {
         LogUtils.d(TAG, "开始备份 path:$path")
         LocalConfig.lastBackup = System.currentTimeMillis()
         val aes = BackupAES()
@@ -232,23 +232,44 @@ object Backup {
             zipFileName
         }
         if (ZipUtils.zipFiles(paths, zipFilePath)) {
-            when {
-                path.isNullOrBlank() -> {
-                    copyBackup(context.getExternalFilesDir(null)!!, backupFileName)
-                }
+            if (!isFromAutoBack) {
+                when {
+                    path.isNullOrBlank() -> {
+                        copyBackup(context.getExternalFilesDir(null)!!, backupFileName)
+                    }
 
-                path.isContentScheme() -> {
-                    copyBackup(context, path.toUri(), backupFileName)
-                }
+                    path.isContentScheme() -> {
+                        copyBackup(context, path.toUri(), backupFileName)
+                    }
 
-                else -> {
-                    copyBackup(File(path), backupFileName)
+                    else -> {
+                        copyBackup(File(path), backupFileName)
+                    }
                 }
             }
             try {
                 AppWebDav.backUpWebDav(zipFileName)
             } catch (e: Exception) {
                 AppLog.put("上传备份至webdav失败\n$e", e)
+            }
+            if (AppConfig.localAutoBackup) {
+                val backupPath = AppConfig.backupPath
+                if (!backupPath.isNullOrBlank()) {
+                    val localBackupFileName = if (AppConfig.onlyLatestBackup) {
+                        "backup-${AppConfig.webDavDeviceName}.zip".normalizeFileName()
+                    } else {
+                        backupFileName
+                    }
+                    try {
+                        if (backupPath.isContentScheme()) {
+                            copyBackup(context, backupPath.toUri(), localBackupFileName)
+                        } else {
+                            copyBackup(File(backupPath), localBackupFileName)
+                        }
+                    } catch (e: Exception) {
+                        AppLog.put("复制备份到本地同步目录失败\n$e", e)
+                    }
+                }
             }
         }
         FileUtils.delete(backupPath)
